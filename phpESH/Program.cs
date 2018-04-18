@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Word = Microsoft.Office.Interop.Word;
 using System.IO;
 using System.Reflection;
+using MySql.Data.MySqlClient;
 
 namespace phpESH
 {
@@ -17,7 +18,7 @@ namespace phpESH
             string config = @"config.cfg";
             List<String> fullpath = ReturnPath(config);
             List<String> bookmarks = ReturnBookmarks(config);
-            List<String> replaceBookmarks = ReturnReplacement(config);
+            List<String> replaceBookmarks = onDB();//ReturnReplacement(config);
             Word.Range temp = null;
 
             for (int i = 0; i < fullpath.Count; i++)
@@ -60,11 +61,6 @@ namespace phpESH
                                 else break;
                             }
                         }
-                        //Дальше для каждого пути реализовать:
-                        //1. Считать количество закладок в файле;
-                        //2. По количеству закладок пробежать по названию закладок 
-                        //и на что заменить закладку (запоминать номер строки с названием закладки);
-                        //}
                     }
                 }
             }
@@ -155,12 +151,16 @@ namespace phpESH
                                     //Перебираем строку
                                     for (int k = 0; k < fs[j + 1].Length; k++)
                                     {
+                                        //Если встретили переход от названия закладки к содержимому
                                         if (fs[j + 1][k] == '=')
                                         {
+                                            //Запоминаем номер символа перехода
                                             inter = k;
                                         }
+                                        //Если не встретили переход, если мы за символом = и если символ не ноль
                                         else if (k > inter && inter != 0)
                                         {
+                                            //Посимвольно сохраняем строку ЗАМЕНЫ закладки (после символа =)
                                             temp += fs[j + 1][k];
                                         }
                                     }
@@ -268,6 +268,45 @@ namespace phpESH
         //        Console.WriteLine("Произошла ошибка замены закладки: " + e.Message);
         //    }
         //}
+
+        private static List<String> onDB()
+        {
+            //Делаем лист закладок
+            List<String> DatabaseBookmarks = new List<string>();
+            //Создание соединения с БД
+            var dbCon = DBConnection.Instance();
+            //Дополнительно переопределяем название БД
+            dbCon.DatabaseName = "prestashop";
+            //Если соединение произошло
+            if (dbCon.IsConnect())
+            {
+                //ВНИМАНИЕ, ПРОДУМАТЬ НАГРУЖЕННЫЕ СИСТЕМЫ, КОГДА ЗАПИСИ В БД НЕ УСПЕВАЮТ ЗА 
+                //ГЕНЕРАЦИЕЙ ТЗ. ВОЗМОЖНО СТОИТ ПЕРЕДАВАТЬ ID КАК ПАРАМЕТР EXEC
+
+                //Запрос к БД
+                //string query = "SELECT * FROM phpTest WHERE ID=(SELECT MAX(ID) FROM phpTest)"; // WHERE id=(SELECT MAX(ID) FROM table);";
+                string query = "SHOW COLUMNS FROM phpTest;";// WHERE ID=(SELECT MAX(ID) FROM phpTest)";
+                //Команда (Послать запрос, к соединению с БД)
+                var cmd = new MySqlCommand(query, dbCon.Connection);
+                //Ридер получает ответ БД
+                var reader = cmd.ExecuteReader();
+                
+                //Каждая итерация цикла - запись в таблице
+                for (int i = 0; i < reader.FieldCount; i++)
+                    Console.WriteLine(reader.GetString(i));
+
+                /*while (reader.Read())
+                {
+                    //Вывести содержимое каждого столбца таблицы
+                    for (int i = 1; i < reader.FieldCount; i++)
+                        Console.WriteLine(reader.GetString(i));
+                            //DatabaseBookmarks.Add((reader.GetString(i)));
+                }*/
+                //Закрыть соединение с БД
+                dbCon.Close();
+            }
+            return DatabaseBookmarks;
+        }
 
         private static void Close()
         {
