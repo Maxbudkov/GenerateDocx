@@ -4,6 +4,7 @@ using Word = Microsoft.Office.Interop.Word;
 using System.IO;
 using System.Reflection;
 using MySql.Data.MySqlClient;
+using System.Data;
 
 namespace phpESH
 {
@@ -17,8 +18,9 @@ namespace phpESH
         {
             string config = @"config.cfg";
             List<String> fullpath = ReturnPath(config);
-            List<String> bookmarks = ReturnBookmarks(config);
-            List<String> replaceBookmarks = onDB();//ReturnReplacement(config);
+            List<String> bookmarks = onDB(true);//ReturnBookmarks(config);
+            List<String> replaceBookmarks = onDB(false);
+            ReturnReplacement(config);
             Word.Range temp = null;
 
             for (int i = 0; i < fullpath.Count; i++)
@@ -30,8 +32,7 @@ namespace phpESH
                 Console.WriteLine("Сохранил");
                 Close();
             }
-
-
+            
             Console.WriteLine("Done. ");
             Console.ReadKey();
         }
@@ -269,10 +270,11 @@ namespace phpESH
         //    }
         //}
 
-        private static List<String> onDB()
+        private static List<String> onDB(bool Bookmarks)
         {
             //Делаем лист закладок
             List<String> DatabaseBookmarks = new List<string>();
+            List<String> DatabaseRowsName = new List<string>();
             //Создание соединения с БД
             var dbCon = DBConnection.Instance();
             //Дополнительно переопределяем название БД
@@ -280,32 +282,65 @@ namespace phpESH
             //Если соединение произошло
             if (dbCon.IsConnect())
             {
+                //Запрос к БД
                 //ВНИМАНИЕ, ПРОДУМАТЬ НАГРУЖЕННЫЕ СИСТЕМЫ, КОГДА ЗАПИСИ В БД НЕ УСПЕВАЮТ ЗА 
                 //ГЕНЕРАЦИЕЙ ТЗ. ВОЗМОЖНО СТОИТ ПЕРЕДАВАТЬ ID КАК ПАРАМЕТР EXEC
-
-                //Запрос к БД
-                //string query = "SELECT * FROM phpTest WHERE ID=(SELECT MAX(ID) FROM phpTest)"; // WHERE id=(SELECT MAX(ID) FROM table);";
-                string query = "SHOW COLUMNS FROM phpTest;";// WHERE ID=(SELECT MAX(ID) FROM phpTest)";
+                //Конфигурационный файл пишется по маске "НАЗВАНИЕ_СТОЛБЦА=ЗНАЧЕНИЕ_СТОЛБЦА"
+                string query = "SELECT * FROM phpTest WHERE ID=(SELECT MAX(ID) FROM phpTest)";
                 //Команда (Послать запрос, к соединению с БД)
                 var cmd = new MySqlCommand(query, dbCon.Connection);
-                //Ридер получает ответ БД
-                var reader = cmd.ExecuteReader();
-                
-                //Каждая итерация цикла - запись в таблице
-                for (int i = 0; i < reader.FieldCount; i++)
-                    Console.WriteLine(reader.GetString(i));
-
-                /*while (reader.Read())
+                //СЧИТЫВАНИЕ НАЗВАНИЯ СТОЛБЦОВ ТАБЛИЦЫ БАЗЫ ДАННЫХ
+                try
                 {
-                    //Вывести содержимое каждого столбца таблицы
-                    for (int i = 1; i < reader.FieldCount; i++)
-                        Console.WriteLine(reader.GetString(i));
-                            //DatabaseBookmarks.Add((reader.GetString(i)));
-                }*/
+                    DataTable schema = null;
+                    using (var schemaCommand = new MySqlCommand("SELECT * FROM phpTest", dbCon.Connection))
+                    {
+                        using (var reader = schemaCommand.ExecuteReader(CommandBehavior.SchemaOnly))
+                        {
+                            schema = reader.GetSchemaTable();
+                        }
+                    }
+                    var reader_content = cmd.ExecuteReader();
+
+                    while (reader_content.Read())
+                    {
+                        //Вывести содержимое каждого столбца таблицы
+                        for (int i = 0; i < reader_content.FieldCount; i++)
+                        {
+                            Console.WriteLine(reader_content.GetString(i));
+                            DatabaseBookmarks.Add((reader_content.GetString(i)));
+                        }
+                    }
+
+                    foreach (DataRow col in schema.Rows)
+                    {
+                        DatabaseRowsName.Add(col.Field<String>("ColumnName"));
+                        Console.WriteLine("{0}={1}", col.Field<String>("ColumnName"), reader_content.GetString(col.Field<String>("ColumnName")));
+                    }
+                    reader_content.Close();
+                }
+                catch (Exception e)
+                {
+                    string path = @"log.txt";
+                    File.AppendAllText(path, Environment.NewLine + DateTime.Now + "   Error: " + e.Message);
+                    Console.WriteLine("Database error. Check log for details. ");
+                }
                 //Закрыть соединение с БД
                 dbCon.Close();
+                ////Склеить название закладки и на что заменить
+                //for (int i = 0; i < DatabaseBookmarks.Count - 1;)
+                //{
+                //    for (int j = 0; j < DatabaseRowsName.Count; j++)
+                //    {
+                //        DatabaseBookmarks[i] = DatabaseRowsName[j] + DatabaseBookmarks[i];
+                //        i++;
+                //    }
+                //}
             }
-            return DatabaseBookmarks;
+            if (Bookmarks)
+                return DatabaseRowsName;
+            else
+                return DatabaseBookmarks;
         }
 
         private static void Close()

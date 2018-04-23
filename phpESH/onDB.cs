@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using MySql.Data.MySqlClient;
 
 namespace phpESH
@@ -41,7 +42,16 @@ namespace phpESH
                     return false;
                 string connstring = string.Format("Server=localhost; database={0}; UID=prestadmin; password=", databaseName);
                 connection = new MySqlConnection(connstring);
-                connection.Open();
+                try
+                {
+                    connection.Open();
+                } catch (Exception e)
+                {
+                    string path = @"log.txt";
+                    File.AppendAllText(path, Environment.NewLine + DateTime.Now + "   Error: " + e.Message);
+                    Console.WriteLine("Database error. Check log for details. ");
+                    return false;
+                }
             }
 
             return true;
