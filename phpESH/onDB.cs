@@ -13,6 +13,9 @@ namespace phpESH
         }
 
         private string databaseName = string.Empty;
+        private string UID = string.Empty;
+        private string password = string.Empty;
+
         public string DatabaseName
         {
             get { return databaseName; }
@@ -21,10 +24,10 @@ namespace phpESH
 
         public string Password { get; set; }
         private MySqlConnection connection = null;
-        public MySqlConnection Connection
-        {
-            get { return connection; }
-        }
+        
+        public string Password1 { get => password; set => password = value; }
+        public string UID1 { get => UID; set => UID = value; }
+        public MySqlConnection Connection { get => connection; set => connection = value; }
 
         private static DBConnection _instance = null;
         public static DBConnection Instance()
@@ -40,11 +43,11 @@ namespace phpESH
             {
                 if (String.IsNullOrEmpty(databaseName))
                     return false;
-                string connstring = string.Format("Server=localhost; database={0}; UID=prestadmin; password=", databaseName);
-                connection = new MySqlConnection(connstring);
+                string connstring = string.Format("Server=localhost; database={0}; UID={1}; password={2}", databaseName, UID1, Password1);
+                Connection = new MySqlConnection(connstring);
                 try
                 {
-                    connection.Open();
+                    Connection.Open();
                 } catch (Exception e)
                 {
                     string path = @"log.txt";
@@ -59,7 +62,7 @@ namespace phpESH
 
         public void Close()
         {
-            connection.Close();
+            Connection.Close();
         }
     }
 }

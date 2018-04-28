@@ -279,6 +279,8 @@ namespace phpESH
             var dbCon = DBConnection.Instance();
             //Дополнительно переопределяем название БД
             dbCon.DatabaseName = "prestashop";
+            dbCon.UID1 = "prestadmin";
+            dbCon.Password1 = "";
             //Если соединение произошло
             if (dbCon.IsConnect())
             {
@@ -337,6 +339,9 @@ namespace phpESH
                 //    }
                 //}
             }
+
+            dbCon.Close();
+
             if (Bookmarks)
                 return DatabaseRowsName;
             else
